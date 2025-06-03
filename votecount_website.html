@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VoteCount by GetElected</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -48,6 +53,36 @@
             text-shadow: 0 2px 10px rgba(255, 255, 255, 0.3);
         }
         
+        .firebase-setup {
+            background: rgba(255, 215, 0, 0.2);
+            border: 2px solid rgba(255, 215, 0, 0.5);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            text-align: center;
+        }
+        
+        .firebase-setup h3 {
+            color: #ffd700;
+            margin-bottom: 1rem;
+        }
+        
+        .firebase-setup p {
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .firebase-config {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.8rem;
+            text-align: left;
+            overflow-x: auto;
+        }
+        
         .btn {
             background: linear-gradient(45deg, #2196f3, #1976d2);
             border: none;
@@ -70,6 +105,12 @@
         
         .btn:active {
             transform: translateY(-1px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
         }
         
         .btn.secondary {
@@ -303,6 +344,29 @@
             flex: 2;
         }
         
+        .connection-status {
+            text-align: center;
+            margin: 1rem 0;
+            padding: 0.5rem;
+            border-radius: 10px;
+            font-size: 0.9rem;
+        }
+        
+        .connection-status.connected {
+            background: rgba(76, 175, 80, 0.2);
+            color: #a5d6a7;
+        }
+        
+        .connection-status.disconnected {
+            background: rgba(244, 67, 54, 0.2);
+            color: #ef9a9a;
+        }
+        
+        .connection-status.connecting {
+            background: rgba(255, 152, 0, 0.2);
+            color: #ffcc02;
+        }
+        
         @media (max-width: 768px) {
             .container {
                 margin: 1rem;
@@ -320,14 +384,56 @@
             .session-code {
                 font-size: 2rem;
             }
+            
+            .button-config-item {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Home Screen -->
-    <div id="homeScreen" class="container">
+    <!-- Firebase Setup Notice -->
+    <div id="firebaseSetup" class="container">
         <div class="header">
             <h1>VoteCount by GetElected</h1>
+        </div>
+        
+        <div class="firebase-setup">
+            <h3>🔧 Firebase Setup Required</h3>
+            <p>To use this app across devices, you need to set up Firebase first:</p>
+            <p>1. Go to <strong>console.firebase.google.com</strong></p>
+            <p>2. Create a new project (free)</p>
+            <p>3. Enable Realtime Database</p>
+            <p>4. Set security rules to: <code>{ "rules": { ".read": true, ".write": true } }</code></p>
+            <p>5. Copy your config and replace the placeholder below:</p>
+            
+            <div class="firebase-config">
+// Replace this placeholder config with your Firebase config:<br>
+const firebaseConfig = {<br>
+&nbsp;&nbsp;apiKey: "your-api-key",<br>
+&nbsp;&nbsp;authDomain: "your-project.firebaseapp.com",<br>
+&nbsp;&nbsp;databaseURL: "https://your-project-default-rtdb.firebaseio.com/",<br>
+&nbsp;&nbsp;projectId: "your-project",<br>
+&nbsp;&nbsp;storageBucket: "your-project.appspot.com",<br>
+&nbsp;&nbsp;messagingSenderId: "123456789",<br>
+&nbsp;&nbsp;appId: "your-app-id"<br>
+};
+            </div>
+            
+            <button class="btn success" onclick="initializeFirebase()">I've Updated the Config - Initialize App</button>
+        </div>
+    </div>
+    
+    <!-- Home Screen -->
+    <div id="homeScreen" class="container hidden">
+        <div class="header">
+            <h1>VoteCount by GetElected</h1>
+        </div>
+        
+        <div class="connection-status" id="connectionStatus">
+            <div class="status-indicator status-connecting"></div>
+            Connecting to Firebase...
         </div>
         
         <div style="text-align: center;">
@@ -496,25 +602,80 @@
     </div>
 
     <script>
+        // Firebase configuration - REPLACE THIS WITH YOUR CONFIG
+  const firebaseConfig = {
+  	apiKey: "AIzaSyBKGuvK-ouf7-AjsOt4B7-p-lPMht7qEqo",
+  	authDomain: "votecount-1.firebaseapp.com",
+  	databaseURL: "https://votecount-1-default-rtdb.europe-west1.firebasedatabase.app",
+  	projectId: "votecount-1",
+  	storageBucket: "votecount-1.firebasestorage.app",
+  	messagingSenderId: "99846931133",
+  	appId: "1:99846931133:web:d6eb680cd32bebb04cadd4"
+};
+        
         // Global variables
+        let database = null;
+        let isFirebaseInitialized = false;
         let currentSessionCode = null;
-        let currentUserRole = null; // 'host' or 'participant'
+        let currentUserRole = null;
         let currentParticipantName = null;
+        let currentParticipantId = null;
         let currentBox = null;
         let currentWard = null;
         let sessionConfig = null;
-        let updateInterval = null;
+        let sessionListeners = {};
         
-        // Initialize localStorage event listener for cross-tab communication
-        window.addEventListener('storage', handleStorageChange);
-        
-        function handleStorageChange(e) {
-            if (e.key && e.key.startsWith('session_')) {
-                if (currentUserRole === 'host') {
-                    updateHostScreen();
-                } else if (currentUserRole === 'participant') {
-                    checkSessionStatus();
+        function initializeFirebase() {
+            try {
+                // Check if the config has been updated
+                if (firebaseConfig.apiKey === "placeholder-api-key") {
+                    alert("Please update the Firebase configuration in the code first!");
+                    return;
                 }
+                
+                // Initialize Firebase
+                firebase.initializeApp(firebaseConfig);
+                database = firebase.database();
+                isFirebaseInitialized = true;
+                
+                // Show home screen
+                document.getElementById('firebaseSetup').classList.add('hidden');
+                document.getElementById('homeScreen').classList.remove('hidden');
+                
+                updateConnectionStatus('connected');
+                
+                // Test connection
+                database.ref('.info/connected').on('value', (snapshot) => {
+                    if (snapshot.val() === true) {
+                        updateConnectionStatus('connected');
+                    } else {
+                        updateConnectionStatus('disconnected');
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Firebase initialization error:', error);
+                alert('Firebase initialization failed. Please check your configuration.');
+                updateConnectionStatus('disconnected');
+            }
+        }
+        
+        function updateConnectionStatus(status) {
+            const statusElement = document.getElementById('connectionStatus');
+            if (!statusElement) return;
+            
+            statusElement.className = `connection-status ${status}`;
+            
+            switch (status) {
+                case 'connected':
+                    statusElement.innerHTML = '<div class="status-indicator status-connected"></div>Connected to Firebase';
+                    break;
+                case 'disconnected':
+                    statusElement.innerHTML = '<div class="status-indicator status-disconnected"></div>Disconnected from Firebase';
+                    break;
+                case 'connecting':
+                    statusElement.innerHTML = '<div class="status-indicator status-connecting"></div>Connecting to Firebase...';
+                    break;
             }
         }
         
@@ -523,11 +684,19 @@
         }
         
         function showCreateSession() {
+            if (!isFirebaseInitialized) {
+                alert('Please initialize Firebase first');
+                return;
+            }
             document.getElementById('homeScreen').classList.add('hidden');
             document.getElementById('createSessionScreen').classList.remove('hidden');
         }
         
         function showJoinSession() {
+            if (!isFirebaseInitialized) {
+                alert('Please initialize Firebase first');
+                return;
+            }
             document.getElementById('homeScreen').classList.add('hidden');
             document.getElementById('joinSessionScreen').classList.remove('hidden');
         }
@@ -551,19 +720,24 @@
                 code: code,
                 host: true,
                 buttonConfig: buttonConfig,
-                participants: [],
-                joinRequests: [],
-                voteData: {}, // Structure: { boxNumber: { ward: string, votes: { party: count } } }
-                createdAt: new Date().toISOString()
+                participants: {},
+                joinRequests: {},
+                voteData: {},
+                createdAt: firebase.database.ServerValue.TIMESTAMP,
+                lastActivity: firebase.database.ServerValue.TIMESTAMP
             };
             
-            localStorage.setItem(`session_${code}`, JSON.stringify(session));
-            
-            currentSessionCode = code;
-            currentUserRole = 'host';
-            sessionConfig = buttonConfig;
-            
-            showHostScreen();
+            // Save to Firebase
+            database.ref(`sessions/${code}`).set(session).then(() => {
+                currentSessionCode = code;
+                currentUserRole = 'host';
+                sessionConfig = buttonConfig;
+                
+                showHostScreen();
+            }).catch((error) => {
+                console.error('Error creating session:', error);
+                alert('Failed to create session. Please try again.');
+            });
         }
         
         function showHostScreen() {
@@ -571,48 +745,70 @@
             document.getElementById('hostScreen').classList.remove('hidden');
             document.getElementById('hostSessionCode').textContent = currentSessionCode;
             
-            updateHostScreen();
-            startPolling();
+            setupHostListeners();
         }
         
-        function updateHostScreen() {
-            const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
-            if (!sessionData) return;
+        function setupHostListeners() {
+            // Listen for join requests
+            sessionListeners.joinRequests = database.ref(`sessions/${currentSessionCode}/joinRequests`).on('value', (snapshot) => {
+                updateJoinRequests(snapshot.val() || {});
+            });
             
-            // Update join requests
+            // Listen for participants
+            sessionListeners.participants = database.ref(`sessions/${currentSessionCode}/participants`).on('value', (snapshot) => {
+                updateParticipantsList(snapshot.val() || {});
+            });
+            
+            // Listen for vote data
+            sessionListeners.voteData = database.ref(`sessions/${currentSessionCode}/voteData`).on('value', (snapshot) => {
+                updateLiveData(snapshot.val() || {});
+            });
+        }
+        
+        function updateJoinRequests(requests) {
             const joinRequestsList = document.getElementById('joinRequestsList');
-            joinRequestsList.innerHTML = sessionData.joinRequests.map(request => `
+            const requestsArray = Object.entries(requests);
+            
+            joinRequestsList.innerHTML = requestsArray.map(([id, request]) => `
                 <div class="participant-request">
                     <span>${request.name} wants to join</span>
                     <div>
-                        <button class="btn success" onclick="approveJoinRequest('${request.id}')">Approve</button>
-                        <button class="btn danger" onclick="denyJoinRequest('${request.id}')">Deny</button>
+                        <button class="btn success" onclick="approveJoinRequest('${id}')">Approve</button>
+                        <button class="btn danger" onclick="denyJoinRequest('${id}')">Deny</button>
                     </div>
                 </div>
             `).join('');
-            
-            // Update participants list
+        }
+        
+        function updateParticipantsList(participants) {
             const participantsList = document.getElementById('participantsList');
             const participantCount = document.getElementById('participantCount');
+            const participantsArray = Object.entries(participants);
             
-            participantCount.textContent = sessionData.participants.length;
-            participantsList.innerHTML = sessionData.participants.map(participant => `
+            participantCount.textContent = participantsArray.length;
+            participantsList.innerHTML = participantsArray.map(([id, participant]) => `
                 <div class="participant-request">
                     <span><div class="status-indicator status-connected"></div>${participant.name}</span>
                     <span>Current Box: ${participant.currentBox || 'Not Set'}</span>
                 </div>
             `).join('');
-            
-            // Update live data
+        }
+        
+        function updateLiveData(voteData) {
             const liveData = document.getElementById('liveData');
-            const boxNumbers = Object.keys(sessionData.voteData).sort((a, b) => {
+            const boxNumbers = Object.keys(voteData).sort((a, b) => {
                 const numA = parseInt(a) || 0;
                 const numB = parseInt(b) || 0;
                 return numA - numB;
             });
             
+            if (boxNumbers.length === 0) {
+                liveData.innerHTML = '<p style="text-align: center; color: #b3d9ff;">No vote data yet</p>';
+                return;
+            }
+            
             liveData.innerHTML = boxNumbers.map(boxNumber => {
-                const boxData = sessionData.voteData[boxNumber];
+                const boxData = voteData[boxNumber];
                 return `
                     <div class="box-summary">
                         <h4>Box ${boxNumber}${boxData.ward ? ` - ${boxData.ward}` : ''}</h4>
@@ -627,38 +823,36 @@
                     </div>
                 `;
             }).join('');
-            
-            if (boxNumbers.length === 0) {
-                liveData.innerHTML = '<p style="text-align: center; color: #b3d9ff;">No vote data yet</p>';
-            }
         }
         
         function approveJoinRequest(requestId) {
-            const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
-            const request = sessionData.joinRequests.find(r => r.id === requestId);
+            const requestRef = database.ref(`sessions/${currentSessionCode}/joinRequests/${requestId}`);
             
-            if (request) {
-                // Move from requests to participants
-                sessionData.participants.push({
-                    id: request.id,
-                    name: request.name,
-                    joinedAt: new Date().toISOString(),
-                    currentBox: null,
-                    currentWard: null
-                });
-                
-                sessionData.joinRequests = sessionData.joinRequests.filter(r => r.id !== requestId);
-                localStorage.setItem(`session_${currentSessionCode}`, JSON.stringify(sessionData));
-                
-                updateHostScreen();
-            }
+            requestRef.once('value').then((snapshot) => {
+                const request = snapshot.val();
+                if (request) {
+                    // Move to participants
+                    const participant = {
+                        id: requestId,
+                        name: request.name,
+                        joinedAt: firebase.database.ServerValue.TIMESTAMP,
+                        currentBox: null,
+                        currentWard: null,
+                        approved: true
+                    };
+                    
+                    // Add to participants and remove from requests
+                    const updates = {};
+                    updates[`sessions/${currentSessionCode}/participants/${requestId}`] = participant;
+                    updates[`sessions/${currentSessionCode}/joinRequests/${requestId}`] = null;
+                    
+                    database.ref().update(updates);
+                }
+            });
         }
         
         function denyJoinRequest(requestId) {
-            const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
-            sessionData.joinRequests = sessionData.joinRequests.filter(r => r.id !== requestId);
-            localStorage.setItem(`session_${currentSessionCode}`, JSON.stringify(sessionData));
-            updateHostScreen();
+            database.ref(`sessions/${currentSessionCode}/joinRequests/${requestId}`).remove();
         }
         
         function requestJoinSession() {
@@ -670,57 +864,65 @@
                 return;
             }
             
-            const sessionData = JSON.parse(localStorage.getItem(`session_${code}`));
-            if (!sessionData) {
-                alert('Session not found. Please check the code.');
-                return;
-            }
-            
-            const requestId = Date.now().toString();
-            const joinRequest = {
-                id: requestId,
-                name: name,
-                requestedAt: new Date().toISOString()
-            };
-            
-            sessionData.joinRequests.push(joinRequest);
-            localStorage.setItem(`session_${code}`, JSON.stringify(sessionData));
-            
-            currentSessionCode = code;
-            currentParticipantName = name;
-            currentUserRole = 'participant';
-            
-            document.getElementById('waitingMessage').classList.remove('hidden');
-            
-            // Check for approval
-            checkApprovalStatus(requestId);
-        }
-        
-        function checkApprovalStatus(requestId) {
-            const checkInterval = setInterval(() => {
-                const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
-                if (!sessionData) {
-                    clearInterval(checkInterval);
-                    alert('Session no longer exists');
-                    goHome();
+            // Check if session exists
+            database.ref(`sessions/${code}`).once('value').then((snapshot) => {
+                if (!snapshot.exists()) {
+                    alert('Session not found. Please check the code.');
                     return;
                 }
                 
-                const participant = sessionData.participants.find(p => p.id === requestId);
-                if (participant) {
-                    clearInterval(checkInterval);
-                    sessionConfig = sessionData.buttonConfig;
-                    showParticipantScreen();
-                }
+                const requestId = 'participant_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                const joinRequest = {
+                    id: requestId,
+                    name: name,
+                    requestedAt: firebase.database.ServerValue.TIMESTAMP
+                };
                 
-                // Check if request was denied (removed from requests without being added to participants)
-                const stillPending = sessionData.joinRequests.find(r => r.id === requestId);
-                if (!stillPending && !participant) {
-                    clearInterval(checkInterval);
-                    alert('Your join request was denied');
-                    goHome();
+                // Add join request
+                database.ref(`sessions/${code}/joinRequests/${requestId}`).set(joinRequest).then(() => {
+                    currentSessionCode = code;
+                    currentParticipantName = name;
+                    currentParticipantId = requestId;
+                    currentUserRole = 'participant';
+                    
+                    document.getElementById('waitingMessage').classList.remove('hidden');
+                    
+                    // Listen for approval
+                    checkApprovalStatus(requestId);
+                });
+            }).catch((error) => {
+                console.error('Error checking session:', error);
+                alert('Failed to join session. Please try again.');
+            });
+        }
+        
+        function checkApprovalStatus(requestId) {
+            // Listen for approval (moved to participants)
+            const participantRef = database.ref(`sessions/${currentSessionCode}/participants/${requestId}`);
+            const requestRef = database.ref(`sessions/${currentSessionCode}/joinRequests/${requestId}`);
+            
+            participantRef.on('value', (snapshot) => {
+                if (snapshot.exists()) {
+                    // Approved! Get session config and show participant screen
+                    database.ref(`sessions/${currentSessionCode}/buttonConfig`).once('value').then((configSnapshot) => {
+                        sessionConfig = configSnapshot.val();
+                        showParticipantScreen();
+                    });
                 }
-            }, 1000);
+            });
+            
+            // Also listen for denial (removed from requests without being added to participants)
+            requestRef.on('value', (snapshot) => {
+                if (!snapshot.exists() && currentUserRole === 'participant') {
+                    // Check if we're in participants, if not, we were denied
+                    participantRef.once('value').then((participantSnapshot) => {
+                        if (!participantSnapshot.exists()) {
+                            alert('Your join request was denied');
+                            goHome();
+                        }
+                    });
+                }
+            });
         }
         
         function showParticipantScreen() {
@@ -739,7 +941,22 @@
             `).join('');
             
             updateCurrentBoxDisplay();
-            startPolling();
+            setupParticipantListeners();
+        }
+        
+        function setupParticipantListeners() {
+            // Listen for session end
+            sessionListeners.session = database.ref(`sessions/${currentSessionCode}`).on('value', (snapshot) => {
+                if (!snapshot.exists()) {
+                    alert('Session has ended');
+                    goHome();
+                }
+            });
+            
+            // Listen for vote data updates for current box
+            if (currentBox) {
+                updateVoteCounts();
+            }
         }
         
         function setCurrentBox() {
@@ -754,23 +971,23 @@
             currentBox = boxNumber;
             currentWard = ward;
             
-            // Update participant info in session
-            const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
-            const participant = sessionData.participants.find(p => p.name === currentParticipantName);
-            if (participant) {
-                participant.currentBox = currentBox;
-                participant.currentWard = currentWard;
-                localStorage.setItem(`session_${currentSessionCode}`, JSON.stringify(sessionData));
-            }
+            // Update participant info in Firebase
+            const updates = {};
+            updates[`sessions/${currentSessionCode}/participants/${currentParticipantId}/currentBox`] = currentBox;
+            updates[`sessions/${currentSessionCode}/participants/${currentParticipantId}/currentWard`] = currentWard;
+            
+            database.ref().update(updates);
             
             // Initialize vote data for this box if it doesn't exist
-            if (!sessionData.voteData[currentBox]) {
-                sessionData.voteData[currentBox] = {
-                    ward: currentWard,
-                    votes: {}
-                };
-                localStorage.setItem(`session_${currentSessionCode}`, JSON.stringify(sessionData));
-            }
+            database.ref(`sessions/${currentSessionCode}/voteData/${currentBox}`).once('value').then((snapshot) => {
+                if (!snapshot.exists()) {
+                    const boxData = {
+                        ward: currentWard,
+                        votes: {}
+                    };
+                    database.ref(`sessions/${currentSessionCode}/voteData/${currentBox}`).set(boxData);
+                }
+            });
             
             updateCurrentBoxDisplay();
             updateVoteCounts();
@@ -787,47 +1004,39 @@
                 return;
             }
             
-            const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
+            const voteRef = database.ref(`sessions/${currentSessionCode}/voteData/${currentBox}/votes/${party}`);
             
-            // Initialize vote data structure if needed
-            if (!sessionData.voteData[currentBox]) {
-                sessionData.voteData[currentBox] = {
-                    ward: currentWard,
-                    votes: {}
-                };
-            }
-            
-            if (!sessionData.voteData[currentBox].votes[party]) {
-                sessionData.voteData[currentBox].votes[party] = 0;
-            }
-            
-            sessionData.voteData[currentBox].votes[party]++;
-            localStorage.setItem(`session_${currentSessionCode}`, JSON.stringify(sessionData));
-            
-            updateVoteCounts();
-            
-            // Visual feedback
-            const button = document.querySelector(`.party-btn.${party}`);
-            button.style.transform = 'scale(0.95)';
-            setTimeout(() => {
-                button.style.transform = '';
-            }, 150);
+            // Increment vote count
+            voteRef.transaction((currentCount) => {
+                return (currentCount || 0) + 1;
+            }).then(() => {
+                updateVoteCounts();
+                
+                // Visual feedback
+                const button = document.querySelector(`.party-btn.${party}`);
+                button.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    button.style.transform = '';
+                }, 150);
+            }).catch((error) => {
+                console.error('Error casting vote:', error);
+                alert('Failed to cast vote. Please try again.');
+            });
         }
         
         function updateVoteCounts() {
             if (!currentBox) return;
             
-            const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
-            const boxData = sessionData.voteData[currentBox];
-            
-            if (boxData) {
+            database.ref(`sessions/${currentSessionCode}/voteData/${currentBox}/votes`).once('value').then((snapshot) => {
+                const votes = snapshot.val() || {};
+                
                 sessionConfig.forEach(config => {
                     const countElement = document.getElementById(`count_${config.party}`);
                     if (countElement) {
-                        countElement.textContent = boxData.votes[config.party] || 0;
+                        countElement.textContent = votes[config.party] || 0;
                     }
                 });
-            }
+            });
         }
         
         function nextBox() {
@@ -846,138 +1055,119 @@
                 }
             });
             
-            // Update participant info in session
-            const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
-            const participant = sessionData.participants.find(p => p.name === currentParticipantName);
-            if (participant) {
-                participant.currentBox = null;
-                participant.currentWard = null;
-                localStorage.setItem(`session_${currentSessionCode}`, JSON.stringify(sessionData));
-            }
+            // Update participant info in Firebase
+            const updates = {};
+            updates[`sessions/${currentSessionCode}/participants/${currentParticipantId}/currentBox`] = null;
+            updates[`sessions/${currentSessionCode}/participants/${currentParticipantId}/currentWard`] = null;
+            
+            database.ref().update(updates);
             
             updateCurrentBoxDisplay();
         }
         
-        function checkSessionStatus() {
-            const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
-            if (!sessionData) {
-                alert('Session has ended');
-                goHome();
-                return;
-            }
-            
-            // Update vote counts if we're on a box
-            if (currentBox) {
-                updateVoteCounts();
-            }
-        }
-        
         function downloadData() {
-            const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
-            if (!sessionData || !sessionData.voteData) {
-                alert('No data to download');
-                return;
-            }
-            
-            // Create CSV content
-            let csvContent = "Box Number,Ward,";
-            
-            // Add party headers
-            sessionConfig.forEach(config => {
-                csvContent += `${config.label.replace(/,/g, ';')},`;
-            });
-            csvContent += "Total Votes\n";
-            
-            // Sort box numbers numerically
-            const boxNumbers = Object.keys(sessionData.voteData).sort((a, b) => {
-                const numA = parseInt(a) || 0;
-                const numB = parseInt(b) || 0;
-                return numA - numB;
-            });
-            
-            // Add data rows
-            boxNumbers.forEach(boxNumber => {
-                const boxData = sessionData.voteData[boxNumber];
-                let row = `"${boxNumber}","${boxData.ward || ''}",`;
+            database.ref(`sessions/${currentSessionCode}/voteData`).once('value').then((snapshot) => {
+                const voteData = snapshot.val();
                 
-                let totalVotes = 0;
+                if (!voteData || Object.keys(voteData).length === 0) {
+                    alert('No data to download');
+                    return;
+                }
+                
+                // Create CSV content
+                let csvContent = "Box Number,Ward,";
+                
+                // Add party headers
                 sessionConfig.forEach(config => {
-                    const votes = boxData.votes[config.party] || 0;
-                    row += `${votes},`;
-                    totalVotes += votes;
+                    csvContent += `${config.label.replace(/,/g, ';')},`;
+                });
+                csvContent += "Total Votes\n";
+                
+                // Sort box numbers numerically
+                const boxNumbers = Object.keys(voteData).sort((a, b) => {
+                    const numA = parseInt(a) || 0;
+                    const numB = parseInt(b) || 0;
+                    return numA - numB;
                 });
                 
-                row += `${totalVotes}\n`;
-                csvContent += row;
+                // Add data rows
+                boxNumbers.forEach(boxNumber => {
+                    const boxData = voteData[boxNumber];
+                    let row = `"${boxNumber}","${boxData.ward || ''}",`;
+                    
+                    let totalVotes = 0;
+                    sessionConfig.forEach(config => {
+                        const votes = boxData.votes[config.party] || 0;
+                        row += `${votes},`;
+                        totalVotes += votes;
+                    });
+                    
+                    row += `${totalVotes}\n`;
+                    csvContent += row;
+                });
+                
+                // Create and download file
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                const timestamp = new Date().toISOString().split('T')[0];
+                
+                link.setAttribute("href", url);
+                link.setAttribute("download", `votecount_session_${currentSessionCode}_${timestamp}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                URL.revokeObjectURL(url);
             });
-            
-            // Create and download file
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            const timestamp = new Date().toISOString().split('T')[0];
-            
-            link.setAttribute("href", url);
-            link.setAttribute("download", `votecount_session_${currentSessionCode}_${timestamp}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            URL.revokeObjectURL(url);
         }
         
         function endSession() {
-            if (confirm('Are you sure you want to end this session? All participants will be disconnected.')) {
+            if (confirm('Are you sure you want to end this session? All participants will be disconnected and data will be deleted.')) {
                 // Download data first
                 downloadData();
                 
-                // Remove session from localStorage
-                localStorage.removeItem(`session_${currentSessionCode}`);
-                
-                stopPolling();
-                goHome();
+                // Remove session from Firebase after a delay to allow download
+                setTimeout(() => {
+                    database.ref(`sessions/${currentSessionCode}`).remove().then(() => {
+                        cleanupListeners();
+                        goHome();
+                    });
+                }, 1000);
             }
         }
         
         function leaveSession() {
             if (confirm('Are you sure you want to leave this session?')) {
                 // Remove participant from session
-                const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
-                if (sessionData) {
-                    sessionData.participants = sessionData.participants.filter(p => p.name !== currentParticipantName);
-                    localStorage.setItem(`session_${currentSessionCode}`, JSON.stringify(sessionData));
+                if (currentParticipantId) {
+                    database.ref(`sessions/${currentSessionCode}/participants/${currentParticipantId}`).remove();
                 }
                 
-                stopPolling();
+                cleanupListeners();
                 goHome();
             }
         }
         
-        function startPolling() {
-            updateInterval = setInterval(() => {
-                if (currentUserRole === 'host') {
-                    updateHostScreen();
-                } else if (currentUserRole === 'participant') {
-                    checkSessionStatus();
+        function cleanupListeners() {
+            // Remove all Firebase listeners
+            Object.keys(sessionListeners).forEach(key => {
+                if (sessionListeners[key]) {
+                    database.ref().off('value', sessionListeners[key]);
                 }
-            }, 2000);
-        }
-        
-        function stopPolling() {
-            if (updateInterval) {
-                clearInterval(updateInterval);
-                updateInterval = null;
-            }
+            });
+            sessionListeners = {};
         }
         
         function goHome() {
-            stopPolling();
+            cleanupListeners();
             
             // Reset all global variables
             currentSessionCode = null;
             currentUserRole = null;
             currentParticipantName = null;
+            currentParticipantId = null;
             currentBox = null;
             currentWard = null;
             sessionConfig = null;
@@ -986,7 +1176,12 @@
             document.querySelectorAll('.container').forEach(container => {
                 container.classList.add('hidden');
             });
-            document.getElementById('homeScreen').classList.remove('hidden');
+            
+            if (isFirebaseInitialized) {
+                document.getElementById('homeScreen').classList.remove('hidden');
+            } else {
+                document.getElementById('firebaseSetup').classList.remove('hidden');
+            }
             
             // Reset forms
             document.getElementById('sessionCode').value = '';
@@ -1009,36 +1204,26 @@
         
         // Clean up on page unload
         window.addEventListener('beforeunload', () => {
-            stopPolling();
-            
-            // If participant, remove from session
-            if (currentUserRole === 'participant' && currentSessionCode) {
-                const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
-                if (sessionData) {
-                    sessionData.participants = sessionData.participants.filter(p => p.name !== currentParticipantName);
-                    localStorage.setItem(`session_${currentSessionCode}`, JSON.stringify(sessionData));
-                }
+            if (currentUserRole === 'participant' && currentParticipantId) {
+                // Remove participant from session
+                database.ref(`sessions/${currentSessionCode}/participants/${currentParticipantId}`).remove();
+            }
+            cleanupListeners();
+        });
+        
+        // Initialize the app when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if Firebase config has been updated
+            if (firebaseConfig.apiKey !== "placeholder-api-key") {
+                initializeFirebase();
             }
         });
         
-        // Initialize the app
-        document.addEventListener('DOMContentLoaded', () => {
-            // Clean up any orphaned sessions on load
-            const keys = Object.keys(localStorage);
-            keys.forEach(key => {
-                if (key.startsWith('session_')) {
-                    const sessionData = JSON.parse(localStorage.getItem(key));
-                    const createdAt = new Date(sessionData.createdAt);
-                    const now = new Date();
-                    const hoursDiff = (now - createdAt) / (1000 * 60 * 60);
-                    
-                    // Remove sessions older than 24 hours
-                    if (hoursDiff > 24) {
-                        localStorage.removeItem(key);
-                    }
-                }
-            });
-        });
+        // Auto-initialize if config is already set
+        if (firebaseConfig.apiKey !== "placeholder-api-key") {
+            initializeFirebase();
+        }
     </script>
 </body>
 </html>
+                
