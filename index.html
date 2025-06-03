@@ -9,6 +9,9 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;700&display=swap" rel="stylesheet">
+    
     <style>
         * {
             margin: 0;
@@ -45,12 +48,50 @@
         .header h1 {
             font-size: 3rem;
             font-weight: bold;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 10px rgba(255, 255, 255, 0.3);
+            font-family: 'Archivo', sans-serif;
+        }
+        
+        .header h1 .vote-part {
             background: linear-gradient(45deg, #ffffff, #e8f4fd);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            margin-bottom: 0.5rem;
-            text-shadow: 0 2px 10px rgba(255, 255, 255, 0.3);
+        }
+        
+        .header h1 .count-part {
+            background: linear-gradient(45deg, #ffffff, #e8f4fd);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header h1 .by-part {
+            background: linear-gradient(45deg, #ffffff, #e8f4fd);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: normal;
+        }
+        
+        .header h1 .getelected-part {
+            font-weight: 700;
+            font-family: 'Archivo', sans-serif;
+        }
+        
+        .header h1 .get-part {
+            background: linear-gradient(45deg, #ffffff, #e8f4fd);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header h1 .elected-part {
+            background: linear-gradient(45deg, #1470af, #2196f3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
         
         .firebase-setup {
@@ -367,6 +408,15 @@
             color: #ffcc02;
         }
         
+        .footer {
+            text-align: center;
+            margin-top: 2rem;
+            padding: 1rem;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
         @media (max-width: 768px) {
             .container {
                 margin: 1rem;
@@ -396,7 +446,7 @@
     <!-- Firebase Setup Notice -->
     <div id="firebaseSetup" class="container">
         <div class="header">
-            <h1>VoteCount by GetElected</h1>
+            <h1><span class="vote-part">Vote</span><span class="count-part">Count</span> <span class="by-part">by</span> <span class="getelected-part"><span class="get-part">Get</span><span class="elected-part">Elected</span></span></h1>
         </div>
         
         <div class="firebase-setup">
@@ -423,29 +473,37 @@ const firebaseConfig = {<br>
             
             <button class="btn success" onclick="initializeFirebase()">I've Updated the Config - Initialize App</button>
         </div>
+        
+        <div class="footer">
+            © 2025 GETELECTED LTD. All rights reserved.
+        </div>
     </div>
     
     <!-- Home Screen -->
     <div id="homeScreen" class="container hidden">
         <div class="header">
-            <h1>VoteCount by GetElected</h1>
+            <h1><span class="vote-part">Vote</span><span class="count-part">Count</span> <span class="by-part">by</span> <span class="getelected-part"><span class="get-part">Get</span><span class="elected-part">Elected</span></span></h1>
         </div>
         
         <div class="connection-status" id="connectionStatus">
             <div class="status-indicator status-connecting"></div>
-            Connecting to Firebase...
+            Connecting...
         </div>
         
         <div style="text-align: center;">
             <button class="btn" onclick="showCreateSession()">Create New Count</button>
             <button class="btn secondary" onclick="showJoinSession()">Join Count</button>
         </div>
+        
+        <div class="footer">
+            © 2025 GETELECTED LTD. All rights reserved.
+        </div>
     </div>
     
     <!-- Create Session Screen -->
     <div id="createSessionScreen" class="container hidden">
         <div class="header">
-            <h1>VoteCount by GetElected</h1>
+            <h1><span class="vote-part">Vote</span><span class="count-part">Count</span> <span class="by-part">by</span> <span class="getelected-part"><span class="get-part">Get</span><span class="elected-part">Elected</span></span></h1>
         </div>
         
         <button class="back-btn" onclick="goHome()">← Back to Home</button>
@@ -500,12 +558,16 @@ const firebaseConfig = {<br>
         <div style="text-align: center; margin-top: 2rem;">
             <button class="btn success" onclick="createSession()">Create Session</button>
         </div>
+        
+        <div class="footer">
+            © 2025 GETELECTED LTD. All rights reserved.
+        </div>
     </div>
     
     <!-- Join Session Screen -->
     <div id="joinSessionScreen" class="container hidden">
         <div class="header">
-            <h1>VoteCount by GetElected</h1>
+            <h1><span class="vote-part">Vote</span><span class="count-part">Count</span> <span class="by-part">by</span> <span class="getelected-part"><span class="get-part">Get</span><span class="elected-part">Elected</span></span></h1>
         </div>
         
         <button class="back-btn" onclick="goHome()">← Back to Home</button>
@@ -530,12 +592,16 @@ const firebaseConfig = {<br>
             <div class="status-indicator status-pending"></div>
             Waiting for host approval...
         </div>
+        
+        <div class="footer">
+            © 2025 GETELECTED LTD. All rights reserved.
+        </div>
     </div>
     
     <!-- Host Screen -->
     <div id="hostScreen" class="container hidden">
         <div class="header">
-            <h1>VoteCount by GetElected</h1>
+            <h1><span class="vote-part">Vote</span><span class="count-part">Count</span> <span class="by-part">by</span> <span class="getelected-part"><span class="get-part">Get</span><span class="elected-part">Elected</span></span></h1>
         </div>
         
         <button class="back-btn" onclick="endSession()">End Session</button>
@@ -560,12 +626,16 @@ const firebaseConfig = {<br>
         <div style="text-align: center; margin-top: 2rem;">
             <button class="btn success" onclick="downloadData()">📊 Download All Data (CSV)</button>
         </div>
+        
+        <div class="footer">
+            © 2025 GETELECTED LTD. All rights reserved.
+        </div>
     </div>
     
     <!-- Participant Screen -->
     <div id="participantScreen" class="container hidden">
         <div class="header">
-            <h1>VoteCount by GetElected</h1>
+            <h1><span class="vote-part">Vote</span><span class="count-part">Count</span> <span class="by-part">by</span> <span class="getelected-part">GetElected</span></h1>
         </div>
         
         <button class="back-btn" onclick="leaveSession()">← Leave Session</button>
@@ -598,6 +668,10 @@ const firebaseConfig = {<br>
         
         <div style="text-align: center; margin-top: 2rem;">
             <button class="btn secondary" onclick="nextBox()">Next Box</button>
+        </div>
+        
+        <div class="footer">
+            © 2025 GETELECTED LTD. All rights reserved.
         </div>
     </div>
 
@@ -668,13 +742,13 @@ const firebaseConfig = {<br>
             
             switch (status) {
                 case 'connected':
-                    statusElement.innerHTML = '<div class="status-indicator status-connected"></div>Connected to Firebase';
+                    statusElement.innerHTML = '<div class="status-indicator status-connected"></div>Online';
                     break;
                 case 'disconnected':
-                    statusElement.innerHTML = '<div class="status-indicator status-disconnected"></div>Disconnected from Firebase';
+                    statusElement.innerHTML = '<div class="status-indicator status-disconnected"></div>Offline';
                     break;
                 case 'connecting':
-                    statusElement.innerHTML = '<div class="status-indicator status-connecting"></div>Connecting to Firebase...';
+                    statusElement.innerHTML = '<div class="status-indicator status-connecting"></div>Connecting...';
                     break;
             }
         }
