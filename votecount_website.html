@@ -831,28 +831,38 @@ const firebaseConfig = {<br>
             requestRef.once('value').then((snapshot) => {
                 const request = snapshot.val();
                 if (request) {
-                    // Move to participants
+                    // Create participant object
                     const participant = {
                         id: requestId,
                         name: request.name,
                         joinedAt: firebase.database.ServerValue.TIMESTAMP,
                         currentBox: null,
                         currentWard: null,
-                        approved: true
+                        approved: true,
+                        lastActivity: firebase.database.ServerValue.TIMESTAMP
                     };
                     
-                    // Add to participants and remove from requests
-                    const updates = {};
-                    updates[`sessions/${currentSessionCode}/participants/${requestId}`] = participant;
-                    updates[`sessions/${currentSessionCode}/joinRequests/${requestId}`] = null;
-                    
-                    database.ref().update(updates);
+                    // First add to participants, then remove from requests
+                    database.ref(`sessions/${currentSessionCode}/participants/${requestId}`).set(participant).then(() => {
+                        // Wait a moment before removing from requests to ensure participant is added first
+                        setTimeout(() => {
+                            database.ref(`sessions/${currentSessionCode}/joinRequests/${requestId}`).remove();
+                        }, 500);
+                    }).catch((error) => {
+                        console.error('Error approving participant:', error);
+                        alert('Failed to approve participant. Please try again.');
+                    });
                 }
+            }).catch((error) => {
+                console.error('Error getting join request:', error);
             });
         }
         
         function denyJoinRequest(requestId) {
-            database.ref(`sessions/${currentSessionCode}/joinRequests/${requestId}`).remove();
+            // Remove from join requests - this will trigger the denial detection
+            database.ref(`sessions/${currentSessionCode}/joinRequests/${requestId}`).remove().catch((error) => {
+                console.error('Error denying join request:', error);
+            });
         }
         
         function requestJoinSession() {
@@ -907,56 +917,80 @@ const firebaseConfig = {<br>
             // Listen for approval (moved to participants)
             const participantRef = database.ref(`sessions/${currentSessionCode}/participants/${requestId}`);
             
-            // Create a one-time listener that will clean itself up
+            // Create a one-time listener for approval
             const approvalListener = participantRef.on('value', (snapshot) => {
-                if (snapshot.exists() && snapshot.val().approved) {
-                    // Clean up this listener
+                if (snapshot.exists()) {
+                    // Clean up listeners immediately
                     participantRef.off('value', approvalListener);
+                    if (sessionListeners.denialListener) {
+                        database.ref(`sessions/${currentSessionCode}/joinRequests/${requestId}`).off('value', sessionListeners.denialListener);
+                    }
+                    
+                    console.log('User approved, showing participant screen');
                     
                     // Get session config and show participant screen
                     database.ref(`sessions/${currentSessionCode}/buttonConfig`).once('value').then((configSnapshot) => {
                         sessionConfig = configSnapshot.val();
                         showParticipantScreen();
+                    }).catch((error) => {
+                        console.error('Error getting session config:', error);
+                        alert('Error loading session. Please try again.');
                     });
                 }
             });
             
-            // Also check if the request gets denied (removed from requests)
-            const requestRef = database.ref(`sessions/${currentSessionCode}/joinRequests/${requestId}`);
-            const denialListener = requestRef.on('value', (snapshot) => {
-                if (!snapshot.exists()) {
-                    // Request was removed, check if we were approved or denied
-                    participantRef.once('value').then((participantSnapshot) => {
-                        if (!participantSnapshot.exists()) {
-                            // We weren't added to participants, so we were denied
-                            requestRef.off('value', denialListener);
-                            participantRef.off('value', approvalListener);
-                            alert('Your join request was denied');
-                            goHome();
-                        }
-                    });
-                }
-            });
+            // Set up a timeout to check for denial after a delay
+            setTimeout(() => {
+                // Check if we're still waiting and request was removed
+                database.ref(`sessions/${currentSessionCode}/joinRequests/${requestId}`).once('value').then((requestSnapshot) => {
+                    if (!requestSnapshot.exists()) {
+                        // Request was removed, check if we were approved
+                        database.ref(`sessions/${currentSessionCode}/participants/${requestId}`).once('value').then((participantSnapshot) => {
+                            if (!participantSnapshot.exists()) {
+                                // Not in participants either, so we were denied
+                                participantRef.off('value', approvalListener);
+                                console.log('User denied');
+                                alert('Your join request was denied');
+                                goHome();
+                            }
+                        });
+                    }
+                });
+            }, 2000); // Check after 2 seconds
             
-            // Store listeners for cleanup
+            // Store listener for cleanup
             sessionListeners.approvalListener = approvalListener;
-            sessionListeners.denialListener = denialListener;
         }
         
         function showParticipantScreen() {
+            console.log('Showing participant screen for:', currentParticipantName);
+            
+            // Clean up any approval listeners
+            if (sessionListeners.approvalListener) {
+                database.ref(`sessions/${currentSessionCode}/participants/${currentParticipantId}`).off('value', sessionListeners.approvalListener);
+                sessionListeners.approvalListener = null;
+            }
+            
             document.getElementById('joinSessionScreen').classList.add('hidden');
             document.getElementById('participantScreen').classList.remove('hidden');
             document.getElementById('participantSessionCode').textContent = currentSessionCode;
             document.getElementById('participantNameDisplay').textContent = currentParticipantName;
             
             // Generate party buttons based on host configuration
-            const partyButtons = document.getElementById('partyButtons');
-            partyButtons.innerHTML = sessionConfig.map((config, index) => `
-                <button class="party-btn ${config.party}" onclick="castVote('${config.party}')">
-                    ${config.label}
-                    <div class="count" id="count_${config.party}">0</div>
-                </button>
-            `).join('');
+            if (sessionConfig && sessionConfig.length > 0) {
+                const partyButtons = document.getElementById('partyButtons');
+                partyButtons.innerHTML = sessionConfig.map((config, index) => `
+                    <button class="party-btn ${config.party}" onclick="castVote('${config.party}')">
+                        ${config.label}
+                        <div class="count" id="count_${config.party}">0</div>
+                    </button>
+                `).join('');
+            } else {
+                console.error('No session config available');
+                alert('Error loading session configuration. Please try rejoining.');
+                goHome();
+                return;
+            }
             
             updateCurrentBoxDisplay();
             setupParticipantListeners();
@@ -1215,27 +1249,37 @@ const firebaseConfig = {<br>
         }
         
         function cleanupListeners() {
+            console.log('Cleaning up listeners for user:', currentParticipantName);
+            
             // Remove all Firebase listeners with proper cleanup
             if (sessionListeners.joinRequests) {
                 database.ref(`sessions/${currentSessionCode}/joinRequests`).off('value', sessionListeners.joinRequests);
+                sessionListeners.joinRequests = null;
             }
             if (sessionListeners.participants) {
                 database.ref(`sessions/${currentSessionCode}/participants`).off('value', sessionListeners.participants);
+                sessionListeners.participants = null;
             }
             if (sessionListeners.voteData) {
                 database.ref(`sessions/${currentSessionCode}/voteData`).off('value', sessionListeners.voteData);
+                sessionListeners.voteData = null;
             }
             if (sessionListeners.sessionEnd) {
                 database.ref(`sessions/${currentSessionCode}`).off('value', sessionListeners.sessionEnd);
+                sessionListeners.sessionEnd = null;
             }
             if (sessionListeners.voteListener && sessionListeners.currentListenBox) {
                 database.ref(`sessions/${currentSessionCode}/voteData/${sessionListeners.currentListenBox}/votes`).off('value', sessionListeners.voteListener);
+                sessionListeners.voteListener = null;
+                sessionListeners.currentListenBox = null;
             }
-            if (sessionListeners.approvalListener) {
+            if (sessionListeners.approvalListener && currentParticipantId) {
                 database.ref(`sessions/${currentSessionCode}/participants/${currentParticipantId}`).off('value', sessionListeners.approvalListener);
+                sessionListeners.approvalListener = null;
             }
-            if (sessionListeners.denialListener) {
+            if (sessionListeners.denialListener && currentParticipantId) {
                 database.ref(`sessions/${currentSessionCode}/joinRequests/${currentParticipantId}`).off('value', sessionListeners.denialListener);
+                sessionListeners.denialListener = null;
             }
             
             // Clear all listeners
