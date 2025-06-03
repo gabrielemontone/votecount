@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoteCount by GetElected</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #4a90e2 100%);
+            min-height: 100vh;
+            color: white;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            font-weight: bold;
+            background: linear-gradient(45deg, #ffffff, #e8f4fd);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 10px rgba(255, 255, 255, 0.3);
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #2196f3, #1976d2);
+            border: none;
+            padding: 1rem 2rem;
+            margin: 0.5rem;
+            border-radius: 50px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 25px rgba(33, 150, 243, 0.4);
+            min-width: 120px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(33, 150, 243, 0.6);
+        }
+        
+        .btn:active {
+            transform: translateY(-1px);
+        }
+        
+        .btn.secondary {
+            background: linear-gradient(45deg, #607d8b, #455a64);
+            box-shadow: 0 10px 25px rgba(96, 125, 139, 0.4);
+        }
+        
+        .btn.secondary:hover {
+            box-shadow: 0 15px 35px rgba(96, 125, 139, 0.6);
+        }
+        
+        .btn.success {
+            background: linear-gradient(45deg, #4caf50, #388e3c);
+            box-shadow: 0 10px 25px rgba(76, 175, 80, 0.4);
+        }
+        
+        .btn.success:hover {
+            box-shadow: 0 15px 35px rgba(76, 175, 80, 0.6);
+        }
+        
+        .btn.danger {
+            background: linear-gradient(45deg, #f44336, #d32f2f);
+            box-shadow: 0 10px 25px rgba(244, 67, 54, 0.4);
+        }
+        
+        .btn.danger:hover {
+            box-shadow: 0 15px 35px rgba(244, 67, 54, 0.6);
+        }
+        
+        .form-group {
+            margin: 1.5rem 0;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #e8f4fd;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            transition: all 0.3s ease;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 1);
+        }
+        
+        .session-code {
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-align: center;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            letter-spacing: 0.3em;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .party-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        
+        .party-btn {
+            padding: 1.5rem;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 15px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .party-btn.conservative { background: linear-gradient(45deg, #0087dc, #005ba1); }
+        .party-btn.labour { background: linear-gradient(45deg, #e4003b, #b8002e); }
+        .party-btn.reform { background: linear-gradient(45deg, #12b2b5, #0e9094); }
+        .party-btn.libdem { background: linear-gradient(45deg, #faa61a, #e8941a); }
+        
+        .party-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+        }
+        
+        .party-btn:active {
+            transform: scale(0.98);
+        }
+        
+        .party-btn .count {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        
+        .participants-section {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+        
+        .participant-request {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .participant-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .data-summary {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .box-summary {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .box-summary h4 {
+            color: #b3d9ff;
+            margin-bottom: 0.5rem;
+        }
+        
+        .vote-tally {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .tally-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.5rem;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .back-btn {
+            background: linear-gradient(45deg, #607d8b, #455a64);
+            border: none;
+            color: white;
+            padding: 0.7rem 1.5rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
+        .status-connected { background: #4caf50; }
+        .status-pending { background: #ff9800; }
+        .status-disconnected { background: #f44336; }
+        
+        .current-box-info {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+            text-align: center;
+        }
+        
+        .button-config {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .button-config-item {
+            display: flex;
+            align-items: center;
+            margin: 0.5rem 0;
+            gap: 1rem;
+        }
+        
+        .button-config-item select {
+            flex: 1;
+        }
+        
+        .button-config-item input {
+            flex: 2;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                margin: 1rem;
+                padding: 1rem;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .party-buttons {
+                grid-template-columns: 1fr;
+            }
+            
+            .session-code {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Home Screen -->
+    <div id="homeScreen" class="container">
+        <div class="header">
+            <h1>VoteCount by GetElected</h1>
+        </div>
+        
+        <div style="text-align: center;">
+            <button class="btn" onclick="showCreateSession()">Create New Count</button>
+            <button class="btn secondary" onclick="showJoinSession()">Join Count</button>
+        </div>
+    </div>
+    
+    <!-- Create Session Screen -->
+    <div id="createSessionScreen" class="container hidden">
+        <div class="header">
+            <h1>VoteCount by GetElected</h1>
+        </div>
+        
+        <button class="back-btn" onclick="goHome()">← Back to Home</button>
+        
+        <h2>Create New Count Session</h2>
+        
+        <div class="button-config">
+            <h3>Configure Party Buttons</h3>
+            <p>Set the order and labels for the voting buttons:</p>
+            
+            <div class="button-config-item">
+                <select id="button1Select">
+                    <option value="conservative">Conservative</option>
+                    <option value="labour">Labour</option>
+                    <option value="reform">Reform</option>
+                    <option value="libdem">LibDem</option>
+                </select>
+                <input type="text" id="button1Note" placeholder="Additional note (optional)">
+            </div>
+            
+            <div class="button-config-item">
+                <select id="button2Select">
+                    <option value="labour" selected>Labour</option>
+                    <option value="conservative">Conservative</option>
+                    <option value="reform">Reform</option>
+                    <option value="libdem">LibDem</option>
+                </select>
+                <input type="text" id="button2Note" placeholder="Additional note (optional)">
+            </div>
+            
+            <div class="button-config-item">
+                <select id="button3Select">
+                    <option value="reform" selected>Reform</option>
+                    <option value="conservative">Conservative</option>
+                    <option value="labour">Labour</option>
+                    <option value="libdem">LibDem</option>
+                </select>
+                <input type="text" id="button3Note" placeholder="Additional note (optional)">
+            </div>
+            
+            <div class="button-config-item">
+                <select id="button4Select">
+                    <option value="libdem" selected>LibDem</option>
+                    <option value="conservative">Conservative</option>
+                    <option value="labour">Labour</option>
+                    <option value="reform">Reform</option>
+                </select>
+                <input type="text" id="button4Note" placeholder="Additional note (optional)">
+            </div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 2rem;">
+            <button class="btn success" onclick="createSession()">Create Session</button>
+        </div>
+    </div>
+    
+    <!-- Join Session Screen -->
+    <div id="joinSessionScreen" class="container hidden">
+        <div class="header">
+            <h1>VoteCount by GetElected</h1>
+        </div>
+        
+        <button class="back-btn" onclick="goHome()">← Back to Home</button>
+        
+        <h2>Join Count Session</h2>
+        
+        <div class="form-group">
+            <label for="sessionCode">Session Code:</label>
+            <input type="text" id="sessionCode" placeholder="Enter 6-digit code" maxlength="6">
+        </div>
+        
+        <div class="form-group">
+            <label for="participantName">Your Name:</label>
+            <input type="text" id="participantName" placeholder="Enter your name">
+        </div>
+        
+        <div style="text-align: center;">
+            <button class="btn" onclick="requestJoinSession()">Request to Join</button>
+        </div>
+        
+        <div id="waitingMessage" class="hidden" style="text-align: center; margin-top: 2rem;">
+            <div class="status-indicator status-pending"></div>
+            Waiting for host approval...
+        </div>
+    </div>
+    
+    <!-- Host Screen -->
+    <div id="hostScreen" class="container hidden">
+        <div class="header">
+            <h1>VoteCount by GetElected</h1>
+        </div>
+        
+        <button class="back-btn" onclick="endSession()">End Session</button>
+        
+        <h2>Count Session</h2>
+        <div class="session-code" id="hostSessionCode"></div>
+        <p style="text-align: center;">Share this code with participants</p>
+        
+        <div class="participants-section">
+            <h3>Join Requests</h3>
+            <div id="joinRequestsList"></div>
+            
+            <h3>Active Participants (<span id="participantCount">0</span>)</h3>
+            <div id="participantsList" class="participant-list"></div>
+        </div>
+        
+        <div class="data-summary">
+            <h3>Live Vote Data</h3>
+            <div id="liveData"></div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 2rem;">
+            <button class="btn success" onclick="downloadData()">📊 Download All Data (CSV)</button>
+        </div>
+    </div>
+    
+    <!-- Participant Screen -->
+    <div id="participantScreen" class="container hidden">
+        <div class="header">
+            <h1>VoteCount by GetElected</h1>
+        </div>
+        
+        <button class="back-btn" onclick="leaveSession()">← Leave Session</button>
+        
+        <h2>Session: <span id="participantSessionCode"></span></h2>
+        <p>Welcome, <span id="participantNameDisplay"></span>!</p>
+        
+        <div class="current-box-info">
+            <h3>Current Box: <span id="currentBoxDisplay">Not Set</span></h3>
+            <p>Ward: <span id="currentWardDisplay">Not Set</span></p>
+        </div>
+        
+        <div class="form-group">
+            <label for="boxNumber">Box Number (Required):</label>
+            <input type="text" id="boxNumber" placeholder="Enter box number" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="ward">Ward (Optional):</label>
+            <input type="text" id="ward" placeholder="Enter ward">
+        </div>
+        
+        <div style="text-align: center; margin: 1rem 0;">
+            <button class="btn" onclick="setCurrentBox()">Set Current Box</button>
+        </div>
+        
+        <div class="party-buttons" id="partyButtons">
+            <!-- Buttons will be dynamically generated based on host configuration -->
+        </div>
+        
+        <div style="text-align: center; margin-top: 2rem;">
+            <button class="btn secondary" onclick="nextBox()">Next Box</button>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentSessionCode = null;
+        let currentUserRole = null; // 'host' or 'participant'
+        let currentParticipantName = null;
+        let currentBox = null;
+        let currentWard = null;
+        let sessionConfig = null;
+        let updateInterval = null;
+        
+        // Initialize localStorage event listener for cross-tab communication
+        window.addEventListener('storage', handleStorageChange);
+        
+        function handleStorageChange(e) {
+            if (e.key && e.key.startsWith('session_')) {
+                if (currentUserRole === 'host') {
+                    updateHostScreen();
+                } else if (currentUserRole === 'participant') {
+                    checkSessionStatus();
+                }
+            }
+        }
+        
+        function generateSessionCode() {
+            return Math.floor(100000 + Math.random() * 900000).toString();
+        }
+        
+        function showCreateSession() {
+            document.getElementById('homeScreen').classList.add('hidden');
+            document.getElementById('createSessionScreen').classList.remove('hidden');
+        }
+        
+        function showJoinSession() {
+            document.getElementById('homeScreen').classList.add('hidden');
+            document.getElementById('joinSessionScreen').classList.remove('hidden');
+        }
+        
+        function createSession() {
+            const code = generateSessionCode();
+            
+            // Get button configuration
+            const buttonConfig = [];
+            for (let i = 1; i <= 4; i++) {
+                const party = document.getElementById(`button${i}Select`).value;
+                const note = document.getElementById(`button${i}Note`).value.trim();
+                buttonConfig.push({
+                    party: party,
+                    note: note,
+                    label: party.charAt(0).toUpperCase() + party.slice(1) + (note ? ` (${note})` : '')
+                });
+            }
+            
+            const session = {
+                code: code,
+                host: true,
+                buttonConfig: buttonConfig,
+                participants: [],
+                joinRequests: [],
+                voteData: {}, // Structure: { boxNumber: { ward: string, votes: { party: count } } }
+                createdAt: new Date().toISOString()
+            };
+            
+            localStorage.setItem(`session_${code}`, JSON.stringify(session));
+            
+            currentSessionCode = code;
+            currentUserRole = 'host';
+            sessionConfig = buttonConfig;
+            
+            showHostScreen();
+        }
+        
+        function showHostScreen() {
+            document.getElementById('createSessionScreen').classList.add('hidden');
+            document.getElementById('hostScreen').classList.remove('hidden');
+            document.getElementById('hostSessionCode').textContent = currentSessionCode;
+            
+            updateHostScreen();
+            startPolling();
+        }
+        
+        function updateHostScreen() {
+            const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
+            if (!sessionData) return;
+            
+            // Update join requests
+            const joinRequestsList = document.getElementById('joinRequestsList');
+            joinRequestsList.innerHTML = sessionData.joinRequests.map(request => `
+                <div class="participant-request">
+                    <span>${request.name} wants to join</span>
+                    <div>
+                        <button class="btn success" onclick="approveJoinRequest('${request.id}')">Approve</button>
+                        <button class="btn danger" onclick="denyJoinRequest('${request.id}')">Deny</button>
+                    </div>
+                </div>
+            `).join('');
+            
+            // Update participants list
+            const participantsList = document.getElementById('participantsList');
+            const participantCount = document.getElementById('participantCount');
+            
+            participantCount.textContent = sessionData.participants.length;
+            participantsList.innerHTML = sessionData.participants.map(participant => `
+                <div class="participant-request">
+                    <span><div class="status-indicator status-connected"></div>${participant.name}</span>
+                    <span>Current Box: ${participant.currentBox || 'Not Set'}</span>
+                </div>
+            `).join('');
+            
+            // Update live data
+            const liveData = document.getElementById('liveData');
+            const boxNumbers = Object.keys(sessionData.voteData).sort((a, b) => {
+                const numA = parseInt(a) || 0;
+                const numB = parseInt(b) || 0;
+                return numA - numB;
+            });
+            
+            liveData.innerHTML = boxNumbers.map(boxNumber => {
+                const boxData = sessionData.voteData[boxNumber];
+                return `
+                    <div class="box-summary">
+                        <h4>Box ${boxNumber}${boxData.ward ? ` - ${boxData.ward}` : ''}</h4>
+                        <div class="vote-tally">
+                            ${sessionConfig.map(config => `
+                                <div class="tally-item">
+                                    <strong>${config.label}</strong><br>
+                                    ${boxData.votes[config.party] || 0} votes
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            if (boxNumbers.length === 0) {
+                liveData.innerHTML = '<p style="text-align: center; color: #b3d9ff;">No vote data yet</p>';
+            }
+        }
+        
+        function approveJoinRequest(requestId) {
+            const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
+            const request = sessionData.joinRequests.find(r => r.id === requestId);
+            
+            if (request) {
+                // Move from requests to participants
+                sessionData.participants.push({
+                    id: request.id,
+                    name: request.name,
+                    joinedAt: new Date().toISOString(),
+                    currentBox: null,
+                    currentWard: null
+                });
+                
+                sessionData.joinRequests = sessionData.joinRequests.filter(r => r.id !== requestId);
+                localStorage.setItem(`session_${currentSessionCode}`, JSON.stringify(sessionData));
+                
+                updateHostScreen();
+            }
+        }
+        
+        function denyJoinRequest(requestId) {
+            const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
+            sessionData.joinRequests = sessionData.joinRequests.filter(r => r.id !== requestId);
+            localStorage.setItem(`session_${currentSessionCode}`, JSON.stringify(sessionData));
+            updateHostScreen();
+        }
+        
+        function requestJoinSession() {
+            const code = document.getElementById('sessionCode').value.trim();
+            const name = document.getElementById('participantName').value.trim();
+            
+            if (!code || !name) {
+                alert('Please enter both session code and your name');
+                return;
+            }
+            
+            const sessionData = JSON.parse(localStorage.getItem(`session_${code}`));
+            if (!sessionData) {
+                alert('Session not found. Please check the code.');
+                return;
+            }
+            
+            const requestId = Date.now().toString();
+            const joinRequest = {
+                id: requestId,
+                name: name,
+                requestedAt: new Date().toISOString()
+            };
+            
+            sessionData.joinRequests.push(joinRequest);
+            localStorage.setItem(`session_${code}`, JSON.stringify(sessionData));
+            
+            currentSessionCode = code;
+            currentParticipantName = name;
+            currentUserRole = 'participant';
+            
+            document.getElementById('waitingMessage').classList.remove('hidden');
+            
+            // Check for approval
+            checkApprovalStatus(requestId);
+        }
+        
+        function checkApprovalStatus(requestId) {
+            const checkInterval = setInterval(() => {
+                const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
+                if (!sessionData) {
+                    clearInterval(checkInterval);
+                    alert('Session no longer exists');
+                    goHome();
+                    return;
+                }
+                
+                const participant = sessionData.participants.find(p => p.id === requestId);
+                if (participant) {
+                    clearInterval(checkInterval);
+                    sessionConfig = sessionData.buttonConfig;
+                    showParticipantScreen();
+                }
+                
+                // Check if request was denied (removed from requests without being added to participants)
+                const stillPending = sessionData.joinRequests.find(r => r.id === requestId);
+                if (!stillPending && !participant) {
+                    clearInterval(checkInterval);
+                    alert('Your join request was denied');
+                    goHome();
+                }
+            }, 1000);
+        }
+        
+        function showParticipantScreen() {
+            document.getElementById('joinSessionScreen').classList.add('hidden');
+            document.getElementById('participantScreen').classList.remove('hidden');
+            document.getElementById('participantSessionCode').textContent = currentSessionCode;
+            document.getElementById('participantNameDisplay').textContent = currentParticipantName;
+            
+            // Generate party buttons based on host configuration
+            const partyButtons = document.getElementById('partyButtons');
+            partyButtons.innerHTML = sessionConfig.map((config, index) => `
+                <button class="party-btn ${config.party}" onclick="castVote('${config.party}')">
+                    ${config.label}
+                    <div class="count" id="count_${config.party}">0</div>
+                </button>
+            `).join('');
+            
+            updateCurrentBoxDisplay();
+            startPolling();
+        }
+        
+        function setCurrentBox() {
+            const boxNumber = document.getElementById('boxNumber').value.trim();
+            const ward = document.getElementById('ward').value.trim();
+            
+            if (!boxNumber) {
+                alert('Box number is required');
+                return;
+            }
+            
+            currentBox = boxNumber;
+            currentWard = ward;
+            
+            // Update participant info in session
+            const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
+            const participant = sessionData.participants.find(p => p.name === currentParticipantName);
+            if (participant) {
+                participant.currentBox = currentBox;
+                participant.currentWard = currentWard;
+                localStorage.setItem(`session_${currentSessionCode}`, JSON.stringify(sessionData));
+            }
+            
+            // Initialize vote data for this box if it doesn't exist
+            if (!sessionData.voteData[currentBox]) {
+                sessionData.voteData[currentBox] = {
+                    ward: currentWard,
+                    votes: {}
+                };
+                localStorage.setItem(`session_${currentSessionCode}`, JSON.stringify(sessionData));
+            }
+            
+            updateCurrentBoxDisplay();
+            updateVoteCounts();
+        }
+        
+        function updateCurrentBoxDisplay() {
+            document.getElementById('currentBoxDisplay').textContent = currentBox || 'Not Set';
+            document.getElementById('currentWardDisplay').textContent = currentWard || 'Not Set';
+        }
+        
+        function castVote(party) {
+            if (!currentBox) {
+                alert('Please set a box number first');
+                return;
+            }
+            
+            const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
+            
+            // Initialize vote data structure if needed
+            if (!sessionData.voteData[currentBox]) {
+                sessionData.voteData[currentBox] = {
+                    ward: currentWard,
+                    votes: {}
+                };
+            }
+            
+            if (!sessionData.voteData[currentBox].votes[party]) {
+                sessionData.voteData[currentBox].votes[party] = 0;
+            }
+            
+            sessionData.voteData[currentBox].votes[party]++;
+            localStorage.setItem(`session_${currentSessionCode}`, JSON.stringify(sessionData));
+            
+            updateVoteCounts();
+            
+            // Visual feedback
+            const button = document.querySelector(`.party-btn.${party}`);
+            button.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                button.style.transform = '';
+            }, 150);
+        }
+        
+        function updateVoteCounts() {
+            if (!currentBox) return;
+            
+            const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
+            const boxData = sessionData.voteData[currentBox];
+            
+            if (boxData) {
+                sessionConfig.forEach(config => {
+                    const countElement = document.getElementById(`count_${config.party}`);
+                    if (countElement) {
+                        countElement.textContent = boxData.votes[config.party] || 0;
+                    }
+                });
+            }
+        }
+        
+        function nextBox() {
+            // Clear current box info
+            currentBox = null;
+            currentWard = null;
+            
+            document.getElementById('boxNumber').value = '';
+            document.getElementById('ward').value = '';
+            
+            // Reset vote counts display
+            sessionConfig.forEach(config => {
+                const countElement = document.getElementById(`count_${config.party}`);
+                if (countElement) {
+                    countElement.textContent = '0';
+                }
+            });
+            
+            // Update participant info in session
+            const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
+            const participant = sessionData.participants.find(p => p.name === currentParticipantName);
+            if (participant) {
+                participant.currentBox = null;
+                participant.currentWard = null;
+                localStorage.setItem(`session_${currentSessionCode}`, JSON.stringify(sessionData));
+            }
+            
+            updateCurrentBoxDisplay();
+        }
+        
+        function checkSessionStatus() {
+            const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
+            if (!sessionData) {
+                alert('Session has ended');
+                goHome();
+                return;
+            }
+            
+            // Update vote counts if we're on a box
+            if (currentBox) {
+                updateVoteCounts();
+            }
+        }
+        
+        function downloadData() {
+            const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
+            if (!sessionData || !sessionData.voteData) {
+                alert('No data to download');
+                return;
+            }
+            
+            // Create CSV content
+            let csvContent = "Box Number,Ward,";
+            
+            // Add party headers
+            sessionConfig.forEach(config => {
+                csvContent += `${config.label.replace(/,/g, ';')},`;
+            });
+            csvContent += "Total Votes\n";
+            
+            // Sort box numbers numerically
+            const boxNumbers = Object.keys(sessionData.voteData).sort((a, b) => {
+                const numA = parseInt(a) || 0;
+                const numB = parseInt(b) || 0;
+                return numA - numB;
+            });
+            
+            // Add data rows
+            boxNumbers.forEach(boxNumber => {
+                const boxData = sessionData.voteData[boxNumber];
+                let row = `"${boxNumber}","${boxData.ward || ''}",`;
+                
+                let totalVotes = 0;
+                sessionConfig.forEach(config => {
+                    const votes = boxData.votes[config.party] || 0;
+                    row += `${votes},`;
+                    totalVotes += votes;
+                });
+                
+                row += `${totalVotes}\n`;
+                csvContent += row;
+            });
+            
+            // Create and download file
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            const timestamp = new Date().toISOString().split('T')[0];
+            
+            link.setAttribute("href", url);
+            link.setAttribute("download", `votecount_session_${currentSessionCode}_${timestamp}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            URL.revokeObjectURL(url);
+        }
+        
+        function endSession() {
+            if (confirm('Are you sure you want to end this session? All participants will be disconnected.')) {
+                // Download data first
+                downloadData();
+                
+                // Remove session from localStorage
+                localStorage.removeItem(`session_${currentSessionCode}`);
+                
+                stopPolling();
+                goHome();
+            }
+        }
+        
+        function leaveSession() {
+            if (confirm('Are you sure you want to leave this session?')) {
+                // Remove participant from session
+                const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
+                if (sessionData) {
+                    sessionData.participants = sessionData.participants.filter(p => p.name !== currentParticipantName);
+                    localStorage.setItem(`session_${currentSessionCode}`, JSON.stringify(sessionData));
+                }
+                
+                stopPolling();
+                goHome();
+            }
+        }
+        
+        function startPolling() {
+            updateInterval = setInterval(() => {
+                if (currentUserRole === 'host') {
+                    updateHostScreen();
+                } else if (currentUserRole === 'participant') {
+                    checkSessionStatus();
+                }
+            }, 2000);
+        }
+        
+        function stopPolling() {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+                updateInterval = null;
+            }
+        }
+        
+        function goHome() {
+            stopPolling();
+            
+            // Reset all global variables
+            currentSessionCode = null;
+            currentUserRole = null;
+            currentParticipantName = null;
+            currentBox = null;
+            currentWard = null;
+            sessionConfig = null;
+            
+            // Hide all screens except home
+            document.querySelectorAll('.container').forEach(container => {
+                container.classList.add('hidden');
+            });
+            document.getElementById('homeScreen').classList.remove('hidden');
+            
+            // Reset forms
+            document.getElementById('sessionCode').value = '';
+            document.getElementById('participantName').value = '';
+            document.getElementById('boxNumber').value = '';
+            document.getElementById('ward').value = '';
+            document.getElementById('waitingMessage').classList.add('hidden');
+            
+            // Reset button configuration to defaults
+            document.getElementById('button1Select').value = 'conservative';
+            document.getElementById('button2Select').value = 'labour';
+            document.getElementById('button3Select').value = 'reform';
+            document.getElementById('button4Select').value = 'libdem';
+            
+            document.getElementById('button1Note').value = '';
+            document.getElementById('button2Note').value = '';
+            document.getElementById('button3Note').value = '';
+            document.getElementById('button4Note').value = '';
+        }
+        
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            stopPolling();
+            
+            // If participant, remove from session
+            if (currentUserRole === 'participant' && currentSessionCode) {
+                const sessionData = JSON.parse(localStorage.getItem(`session_${currentSessionCode}`));
+                if (sessionData) {
+                    sessionData.participants = sessionData.participants.filter(p => p.name !== currentParticipantName);
+                    localStorage.setItem(`session_${currentSessionCode}`, JSON.stringify(sessionData));
+                }
+            }
+        });
+        
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', () => {
+            // Clean up any orphaned sessions on load
+            const keys = Object.keys(localStorage);
+            keys.forEach(key => {
+                if (key.startsWith('session_')) {
+                    const sessionData = JSON.parse(localStorage.getItem(key));
+                    const createdAt = new Date(sessionData.createdAt);
+                    const now = new Date();
+                    const hoursDiff = (now - createdAt) / (1000 * 60 * 60);
+                    
+                    // Remove sessions older than 24 hours
+                    if (hoursDiff > 24) {
+                        localStorage.removeItem(key);
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
